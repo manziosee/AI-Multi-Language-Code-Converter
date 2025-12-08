@@ -38,6 +38,19 @@ export interface ErrorResponse {
   success: false;
 }
 
+export interface ExplainRequest {
+  language: Language;
+  code: string;
+}
+
+export interface ExplainResponse {
+  explanation: string;
+  language: string;
+  success: boolean;
+}
+
+export type ViewMode = 'single' | 'split';
+
 export const SUPPORTED_LANGUAGES: LanguageOption[] = [
   { value: 'python', label: 'Python', extension: '.py', monacoLanguage: 'python' },
   { value: 'nodejs', label: 'Node.js', extension: '.js', monacoLanguage: 'javascript' },
