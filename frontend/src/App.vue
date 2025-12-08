@@ -384,7 +384,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { converterApi } from '@/api/converter';
 import { SUPPORTED_LANGUAGES } from '@/types';
 import type { Language, ViewMode } from '@/types';
