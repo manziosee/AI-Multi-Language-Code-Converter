@@ -261,8 +261,22 @@ const processFile = async (file: File) => {
   uploadedFile.value = file;
   errorMessage.value = '';
   
+  // Validate file size (max 1MB)
+  if (file.size > 1024 * 1024) {
+    errorMessage.value = 'File is too large. Maximum size is 1MB.';
+    uploadedFile.value = null;
+    return;
+  }
+  
   try {
     const text = await file.text();
+    
+    if (!text.trim()) {
+      errorMessage.value = 'File is empty.';
+      uploadedFile.value = null;
+      return;
+    }
+    
     sourceCode.value = text;
     
     // Auto-detect source language from file extension
@@ -272,12 +286,19 @@ const processFile = async (file: File) => {
       sourceLanguage.value = detectedLang.value;
     }
   } catch (error) {
-    errorMessage.value = 'Failed to read file';
+    errorMessage.value = 'Failed to read file. Please ensure it is a valid text file.';
+    uploadedFile.value = null;
   }
 };
 
 const convertCode = async () => {
   if (!canConvert.value) return;
+  
+  // Validate code length
+  if (sourceCode.value.length > 50000) {
+    errorMessage.value = 'Code is too large. Maximum 50,000 characters allowed.';
+    return;
+  }
   
   isConverting.value = true;
   errorMessage.value = '';
@@ -287,10 +308,14 @@ const convertCode = async () => {
     await converterApi.convertCodeStream({
       source_language: sourceLanguage.value as Language,
       target_language: targetLanguage.value as Language,
-      code: sourceCode.value
+      code: sourceCode.value.trim()
     }, (chunk) => {
       convertedCode.value += chunk;
     });
+    
+    if (!convertedCode.value.trim()) {
+      errorMessage.value = 'No code was generated. Please try again.';
+    }
   } catch (error: any) {
     errorMessage.value = error.message || 'Conversion failed. Please try again.';
     console.error('Conversion error:', error);

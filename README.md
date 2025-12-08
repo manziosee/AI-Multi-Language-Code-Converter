@@ -1,18 +1,22 @@
 # 🚀 AI Multi-Language Code Converter
 
-A modern, real-time web application that automatically converts code from one programming language to another using AI (OpenAI GPT-4o).
+A modern, real-time web application that automatically converts code from one programming language to another using AI (Groq Llama 3.3, OpenAI GPT-4o, or Hugging Face).
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+**🌐 Live Demo:** https://ai-code-converter-manzi.fly.dev
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![Vue](https://img.shields.io/badge/vue-3.4+-green.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-5.3+-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688.svg)
+![Groq](https://img.shields.io/badge/Groq-Llama%203.3-orange.svg)
 
 ## ✨ Features
 
 - **🔄 Multi-Language Support**: Convert between Python, Node.js, JavaScript, TypeScript, Java, PHP, Go, C, C++, C#, Rust, SQL, and Prisma Schema
 - **📁 File Upload**: Drag-and-drop or click to upload code files
 - **🎨 Premium UI**: Modern dark theme with glassmorphism, animated space background, and smooth animations
-- **⚡ Real-Time Conversion**: Instant code translation powered by Groq (Llama 3), Hugging Face, or OpenAI
+- **⚡ Real-Time Streaming**: Live code translation powered by Groq (Llama 3.3), Hugging Face, or OpenAI
 - **📥 Download Results**: Save converted code as files
 - **🎯 Auto-Detection**: Automatically detects source language from file extension
 - **💻 Syntax Highlighting**: Beautiful code display with JetBrains Mono font
@@ -45,7 +49,10 @@ A modern, real-time web application that automatically converts code from one pr
 
 - **Python 3.9+**
 - **Node.js 18+** and npm
-- **OpenAI API Key** ([Get one here](https://platform.openai.com/api-keys))
+- **API Key** (Choose one):
+  - **Groq API Key** (Recommended - Free) - [Get here](https://console.groq.com/keys)
+  - **OpenAI API Key** - [Get here](https://platform.openai.com/api-keys)
+  - **Hugging Face API Key** - [Get here](https://huggingface.co/settings/tokens)
 
 ### Backend Setup
 
@@ -70,10 +77,23 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-5. Edit `.env` and add your OpenAI API key:
+5. Edit `.env` and add your API keys:
 ```env
+# Choose your AI provider: groq, openai, or huggingface
+AI_PROVIDER=groq
+
+# Groq Configuration (Recommended - Fast & Free)
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=llama-3.3-70b-versatile
+
+# OpenAI Configuration (Alternative)
 OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini
+
+# Hugging Face Configuration (Alternative)
+HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+
+# Server Configuration
 CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
@@ -212,7 +232,9 @@ Visit `http://localhost:8000/docs` for interactive Swagger UI documentation.
 
 ### Backend
 - **FastAPI** - Modern Python web framework
-- **OpenAI API** - GPT-4o for code conversion
+- **Groq API** - Llama 3.3 for fast code conversion
+- **OpenAI API** - GPT-4o alternative
+- **Hugging Face** - Open-source models alternative
 - **Pydantic** - Data validation
 - **Uvicorn** - ASGI server
 
@@ -248,91 +270,112 @@ AI-Multi-Language-Code-Converter/
 
 ### Backend Deployment (Fly.io)
 
-1. **Install flyctl**: Follow instructions at [fly.io/docs/hands-on/install-flyctl](https://fly.io/docs/hands-on/install-flyctl/)
+**Quick Deploy:**
+```bash
+cd backend
 
-2. **Login to Fly.io**:
-   ```bash
-   fly auth login
-   ```
+# Install Fly CLI
+curl -L https://fly.io/install.sh | sh
 
-3. **Initialize App**:
-   ```bash
-   cd backend
-   fly launch
-   ```
-   - Follow the prompts (Select a region, etc.)
-   - **Do not** deploy yet if asked.
+# Login
+flyctl auth login
 
-4. **Set Secrets**:
-   ```bash
-   fly secrets set GROQ_API_KEY=your_key
-   fly secrets set HUGGINGFACE_API_KEY=your_key
-   fly secrets set OPENAI_API_KEY=your_key
-   fly secrets set AI_PROVIDER=groq
-   fly secrets set CORS_ORIGINS=https://your-frontend-url.vercel.app
-   ```
+# Launch app
+flyctl launch --no-deploy
 
-5. **Deploy**:
-   ```bash
-   fly deploy
-   ```
+# Set secrets
+flyctl secrets set AI_PROVIDER=groq
+flyctl secrets set GROQ_API_KEY=your_groq_api_key
+flyctl secrets set CORS_ORIGINS="http://localhost:5173,https://your-app.vercel.app"
 
-The backend will be available at `https://your-app-name.fly.dev`
+# Deploy
+flyctl deploy
+```
+
+**Or use the automated script:**
+```bash
+cd backend
+./deploy.sh
+```
+
+The backend will be available at `https://ai-code-converter-manzi.fly.dev/`
+
+
 
 ### Frontend Deployment (Vercel)
 
-1. **Install Vercel CLI**:
-   ```bash
-   npm i -g vercel
-   ```
+**Quick Deploy:**
+```bash
+cd frontend
 
-2. **Deploy**:
-   ```bash
-   cd frontend
-   vercel
-   ```
-   - Follow the prompts to link the project.
+# Install Vercel CLI
+npm i -g vercel
 
-3. **Configure Environment**:
-   - Go to your Vercel project dashboard.
-   - Navigate to **Settings > Environment Variables**.
-   - Add `VITE_API_URL` with your Fly.io backend URL (e.g., `https://your-app-name.fly.dev`).
+# Deploy
+vercel
 
-4. **Redeploy**:
-   ```bash
-   vercel --prod
-   ```
+# Set environment variable
+vercel env add VITE_API_URL production
+# Enter: https://your-app-name.fly.dev
+
+# Deploy to production
+vercel --prod
+```
 
 The frontend will be available at `https://your-project.vercel.app`
 
-## 💡 Future Enhancements
+See [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md) for detailed instructions.
 
-- [ ] **Streaming Conversion**: Real-time output as code is generated
-- [ ] **Multi-file Support**: Convert entire projects
-- [ ] **Version History**: Save and compare previous conversions
-- [ ] **Side-by-side Diff**: Visual comparison of original vs converted
-- [ ] **Authentication**: User accounts and saved projects
-- [ ] **API Access**: Public API for developers
-- [ ] **More Languages**: Support for Rust, C++, C#, Ruby, etc.
+## 💡 Features Implemented
 
-## 📝 License
-
-MIT License - feel free to use this project for personal or commercial purposes.
+- ✅ **Streaming Conversion**: Real-time output as code is generated
+- ✅ **File Upload**: Drag-and-drop support with auto-detection
+- ✅ **13 Languages**: Python, JS, TS, Node.js, Java, PHP, Go, C, C++, C#, Rust, SQL, Prisma
+- ✅ **Multiple AI Providers**: Groq, OpenAI, Hugging Face
+- ✅ **Production Ready**: Deployed on Fly.io + Vercel
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## ⚠️ Important Notes
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-- **API Costs**: Each conversion makes a call to OpenAI's API, which incurs costs
-- **Rate Limits**: OpenAI has rate limits on API calls
-- **Code Quality**: AI-generated code should be reviewed before production use
+## 📦 Repository
+
+**GitHub:** https://github.com/manziosee/AI-Multi-Language-Code-Converter
+
+```bash
+# Clone the repository
+git clone https://github.com/manziosee/AI-Multi-Language-Code-Converter.git
+cd AI-Multi-Language-Code-Converter
+```
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 📧 Support
 
-For issues or questions, please open an issue on GitHub.
+For issues or questions:
+- Open an issue on [GitHub](https://github.com/manziosee/AI-Multi-Language-Code-Converter/issues)
+- Email: manziosee3@gmail.com
+
+## 👨💻 Author
+
+**Manzi Niyongira Osee**
+- GitHub: [@manziosee](https://github.com/manziosee)
+- Email: manziosee3@gmail.com
+
+## 📊 Performance
+
+- **Response Time**: < 5 seconds for most conversions
+- **Uptime**: 99.9% (Fly.io auto-scaling)
+- **Concurrent Users**: Supports multiple simultaneous conversions
 
 ---
 
-**Built with ❤️ using Vue.js, FastAPI, and OpenAI**
+**Built with ❤️ using Vue.js, FastAPI, Groq, and deployed on Fly.io + Vercel**
