@@ -1205,7 +1205,7 @@ kbd {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: auto;
-  pointer-events: none;
+  pointer-events: auto;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.875rem;
   line-height: 1.6;
