@@ -35,20 +35,25 @@ export const converterApi = {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`Conversion failed: ${errorText || response.statusText}`);
     }
 
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
 
-    if (!reader) return;
+    if (!reader) throw new Error('Stream not available');
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      
-      const chunk = decoder.decode(value, { stream: true });
-      onChunk(chunk);
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        onChunk(chunk);
+      }
+    } finally {
+      reader.releaseLock();
     }
   },
 

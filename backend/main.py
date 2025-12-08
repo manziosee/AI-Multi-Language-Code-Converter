@@ -97,6 +97,13 @@ async def convert_code(request: ConversionRequest):
                 detail="Source and target languages must be different"
             )
         
+        # Validate code length
+        if len(request.code) > 100000:
+            raise HTTPException(
+                status_code=400,
+                detail="Code is too large. Maximum 100,000 characters allowed."
+            )
+        
         # Perform conversion
         converted_code = await converter.convert_code(request)
         

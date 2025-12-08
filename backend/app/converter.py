@@ -18,8 +18,12 @@ class CodeConverter:
         
         # Initialize clients based on provider
         if self.provider == "openai":
+            if not settings.openai_api_key:
+                raise ValueError("OpenAI API key not configured")
             self.openai_client = OpenAI(api_key=settings.openai_api_key)
         elif self.provider == "groq":
+            if not settings.groq_api_key:
+                raise ValueError("Groq API key not configured")
             self.groq_client = Groq(api_key=settings.groq_api_key)
             
     def _get_language_display_name(self, lang: str) -> str:
@@ -85,7 +89,8 @@ Converted Code ({target_lang}):"""
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.1,
-                max_tokens=4000,
+                max_tokens=8000,
+                timeout=60.0,
             )
             return self._clean_output(completion.choices[0].message.content)
         except Exception as e:
@@ -101,13 +106,13 @@ Converted Code ({target_lang}):"""
             payload = {
                 "inputs": prompt,
                 "parameters": {
-                    "max_new_tokens": 1024,
+                    "max_new_tokens": 2048,
                     "temperature": 0.2,
                     "return_full_text": False
                 }
             }
             
-            response = requests.post(API_URL, headers=headers, json=payload)
+            response = requests.post(API_URL, headers=headers, json=payload, timeout=60)
             response.raise_for_status()
             
             result = response.json()
@@ -128,7 +133,8 @@ Converted Code ({target_lang}):"""
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
-                max_tokens=4000,
+                max_tokens=8000,
+                timeout=60.0,
             )
             return self._clean_output(response.choices[0].message.content)
         except Exception as e:
@@ -160,7 +166,8 @@ Converted Code ({target_lang}):"""
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.1,
-                max_tokens=4000,
+                max_tokens=8000,
+                timeout=60.0,
                 stream=True
             )
             
@@ -181,7 +188,8 @@ Converted Code ({target_lang}):"""
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
-                max_tokens=4000,
+                max_tokens=8000,
+                timeout=60.0,
                 stream=True
             )
             
