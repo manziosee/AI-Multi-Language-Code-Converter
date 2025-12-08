@@ -79,6 +79,14 @@ export const converterApi = {
   },
 
   /**
+   * Explain code
+   */
+  async explainCode(request: { language: string; code: string }): Promise<{ explanation: string; language: string; success: boolean }> {
+    const response = await apiClient.post('/explain', request);
+    return response.data;
+  },
+
+  /**
    * Health check
    */
   async healthCheck(): Promise<{ status: string }> {

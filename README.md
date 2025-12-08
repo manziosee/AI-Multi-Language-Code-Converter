@@ -2,7 +2,7 @@
 
 A modern, real-time web application that automatically converts code from one programming language to another using AI (Groq Llama 3.3, OpenAI GPT-4o, or Hugging Face).
 
-**🌐 Live Demo:** https://ai-code-converter-manzi.fly.dev
+**🌐 Live Demo:** https://ai-multi-language-code-converter.vercel.app/
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
@@ -13,13 +13,19 @@ A modern, real-time web application that automatically converts code from one pr
 
 ## ✨ Features
 
-- **🔄 Multi-Language Support**: Convert between Python, Node.js, JavaScript, TypeScript, Java, PHP, Go, C, C++, C#, Rust, SQL, and Prisma Schema
+- **🔄 Multi-Language Support**: Convert between 13 programming languages
 - **📁 File Upload**: Drag-and-drop or click to upload code files
-- **🎨 Premium UI**: Modern dark theme with glassmorphism, animated space background, and smooth animations
+- **🎨 Premium UI**: Modern dark theme with glassmorphism and animated space background
 - **⚡ Real-Time Streaming**: Live code translation powered by Groq (Llama 3.3), Hugging Face, or OpenAI
+- **💡 Code Explanation**: AI-powered explanations of your code
+- **📊 Split View**: Side-by-side code comparison
+- **📋 Copy to Clipboard**: One-click copy for source and converted code
+- **📜 Conversion History**: LocalStorage-based history of recent conversions
+- **📝 Code Templates**: Pre-loaded examples for all languages
+- **📊 Code Statistics**: Real-time lines, characters, and word count
+- **⌨️ Keyboard Shortcuts**: Power user shortcuts (Ctrl+Enter, Ctrl+E, Ctrl+D)
 - **📥 Download Results**: Save converted code as files
 - **🎯 Auto-Detection**: Automatically detects source language from file extension
-- **💻 Syntax Highlighting**: Beautiful code display with JetBrains Mono font
 
 ## 🏗️ Architecture
 
@@ -332,6 +338,14 @@ See [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md) for detailed instructions.
 - ✅ **File Upload**: Drag-and-drop support with auto-detection
 - ✅ **13 Languages**: Python, JS, TS, Node.js, Java, PHP, Go, C, C++, C#, Rust, SQL, Prisma
 - ✅ **Multiple AI Providers**: Groq, OpenAI, Hugging Face
+- ✅ **Code Explanation**: AI-powered code explanations
+- ✅ **Split View**: Side-by-side code comparison
+- ✅ **Copy to Clipboard**: One-click copy functionality
+- ✅ **Conversion History**: LocalStorage-based history (last 10)
+- ✅ **Code Templates**: Pre-loaded examples for all languages
+- ✅ **Code Statistics**: Real-time line/character/word count
+- ✅ **Keyboard Shortcuts**: Power user productivity features
+- ✅ **Setup Guide**: Configuration and dependency guide for each language
 - ✅ **Production Ready**: Deployed on Fly.io + Vercel
 
 ## 🤝 Contributing
@@ -354,12 +368,6 @@ git clone https://github.com/manziosee/AI-Multi-Language-Code-Converter.git
 cd AI-Multi-Language-Code-Converter
 ```
 
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📧 Support
-
 For issues or questions:
 - Open an issue on [GitHub](https://github.com/manziosee/AI-Multi-Language-Code-Converter/issues)
 - Email: manziosee3@gmail.com
@@ -369,6 +377,54 @@ For issues or questions:
 **Manzi Niyongira Osee**
 - GitHub: [@manziosee](https://github.com/manziosee)
 - Email: manziosee3@gmail.com
+
+## 🆕 New Features
+
+### 💡 Code Explanation
+- Click "Explain Code" to understand what your code does
+- Detailed breakdown of logic, functions, and patterns
+- Works with all 13 supported languages
+
+### 📊 Split View
+- Toggle between single and split view modes
+- Perfect for reviewing conversions
+- Responsive design for all screen sizes
+
+### 📋 Copy to Clipboard
+- One-click copy for both source and converted code
+- Visual feedback on successful copy
+- Works across all modern browsers
+
+### 📜 Conversion History
+- Automatic saving of recent conversions (last 10)
+- Quick access to previous work
+- LocalStorage-based (no backend required)
+- One-click restore from history
+
+### 📝 Code Templates
+- Pre-loaded examples for all 13 languages
+- Quick start for testing and learning
+- Fibonacci example demonstrates language syntax
+
+### 📊 Code Statistics
+- Real-time line count
+- Character count
+- Non-empty line count
+- Displayed for both source and converted code
+
+### ⌨️ Keyboard Shortcuts
+- **Ctrl+Enter** (or Cmd+Enter): Convert code
+- **Ctrl+E** (or Cmd+E): Explain code
+- **Ctrl+D** (or Cmd+D): Download converted code
+- Power user productivity features
+
+### ⚙️ Setup Guide
+- Click "Setup" button to view configuration guide for target language
+- Shows required dependencies and installation commands
+- Provides configuration files (package.json, tsconfig.json, etc.)
+- Includes quick tips and best practices
+- One-click copy for all commands and config files
+- Covers all 13 supported languages
 
 ## 📊 Performance
 

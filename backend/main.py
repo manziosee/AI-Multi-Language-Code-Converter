@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from app.config import settings
-from app.models import ConversionRequest, ConversionResponse, ErrorResponse
+from app.models import ConversionRequest, ConversionResponse, ErrorResponse, ExplainRequest, ExplainResponse
 from app.converter import converter
 import logging
 
@@ -182,6 +182,51 @@ async def convert_file(
         raise HTTPException(
             status_code=500,
             detail=f"File conversion failed: {str(e)}"
+        )
+
+
+@app.post("/explain", response_model=ExplainResponse)
+async def explain_code(request: ExplainRequest):
+    """
+    Explain code in natural language.
+    
+    Args:
+        request: ExplainRequest with language and code
+        
+    Returns:
+        ExplainResponse with code explanation
+        
+    Raises:
+        HTTPException: If explanation fails
+    """
+    try:
+        logger.info(f"Explaining {request.language} code")
+        
+        # Validate code length
+        if len(request.code) > 50000:
+            raise HTTPException(
+                status_code=400,
+                detail="Code is too large. Maximum 50,000 characters allowed."
+            )
+        
+        # Get explanation
+        explanation = await converter.explain_code(request.language, request.code)
+        
+        logger.info("Explanation successful")
+        
+        return ExplainResponse(
+            explanation=explanation,
+            language=request.language,
+            success=True
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Explanation error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Code explanation failed: {str(e)}"
         )
 
 

@@ -123,16 +123,48 @@
             </div>
           </div>
 
-          <!-- Convert Button -->
+          <!-- Quick Actions -->
+          <div class="quick-actions mb-md">
+            <button @click="loadExample" class="btn btn-sm btn-outline" :disabled="!sourceLanguage">
+              📝 Load Example
+            </button>
+            <button @click="showHistory = !showHistory" class="btn btn-sm btn-outline">
+              📜 History ({{ history.length }})
+            </button>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="button-group">
+            <button 
+              @click="convertCode"
+              :disabled="!canConvert || isConverting"
+              class="btn btn-primary btn-lg"
+              title="Ctrl+Enter"
+            >
+              <span v-if="isConverting" class="spinner"></span>
+              <span v-else>✨</span>
+              {{ isConverting ? 'Converting...' : 'Convert' }}
+            </button>
+            
+            <button 
+              @click="explainCode"
+              :disabled="!sourceLanguage || !sourceCode.trim() || isExplaining"
+              class="btn btn-secondary btn-lg"
+              title="Ctrl+E"
+            >
+              <span v-if="isExplaining" class="spinner"></span>
+              <span v-else>💡</span>
+              {{ isExplaining ? 'Explaining...' : 'Explain' }}
+            </button>
+          </div>
+          
+          <!-- View Mode Toggle -->
           <button 
-            @click="convertCode"
-            :disabled="!canConvert || isConverting"
-            class="btn btn-primary btn-lg"
-            style="width: 100%"
+            @click="toggleViewMode"
+            class="btn btn-outline"
+            style="width: 100%; margin-top: var(--spacing-md)"
           >
-            <span v-if="isConverting" class="spinner"></span>
-            <span v-else>✨</span>
-            {{ isConverting ? 'Converting...' : 'Convert Code' }}
+            {{ viewMode === 'single' ? '📊 Split View' : '📄 Single View' }}
           </button>
 
           <!-- Error Message -->
@@ -142,20 +174,35 @@
         </div>
 
         <!-- Code Editors -->
-        <div class="editors-container">
+        <div class="editors-container" :class="{ 'split-view': viewMode === 'split' }">
           <!-- Source Code -->
           <div class="editor-panel glass-card">
             <div class="editor-header">
               <h3>Source Code</h3>
-              <span v-if="sourceLanguage" class="language-badge">{{ getLanguageLabel(sourceLanguage) }}</span>
+              <div class="header-actions">
+                <span v-if="sourceLanguage" class="language-badge">{{ getLanguageLabel(sourceLanguage) }}</span>
+                <button 
+                  v-if="sourceCode"
+                  @click="copySource"
+                  class="btn btn-sm btn-secondary"
+                >
+                  {{ copiedSource ? '✓ Copied!' : '📋 Copy' }}
+                </button>
+              </div>
             </div>
             <div class="editor-wrapper">
               <textarea 
                 v-model="sourceCode"
+                @input="updateSourceStats"
                 class="code-textarea"
                 placeholder="Paste your code here or upload a file..."
                 :disabled="isConverting"
               ></textarea>
+            </div>
+            <div v-if="sourceStats" class="code-stats">
+              <span>📊 {{ sourceStats.lines }} lines</span>
+              <span>🔤 {{ sourceStats.characters }} chars</span>
+              <span>📝 {{ sourceStats.nonEmptyLines }} non-empty</span>
             </div>
           </div>
 
@@ -167,10 +214,26 @@
                 <span v-if="targetLanguage" class="language-badge">{{ getLanguageLabel(targetLanguage) }}</span>
                 <button 
                   v-if="convertedCode"
+                  @click="copyConverted"
+                  class="btn btn-sm btn-secondary"
+                >
+                  {{ copiedConverted ? '✓ Copied!' : '📋 Copy' }}
+                </button>
+                <button 
+                  v-if="convertedCode"
                   @click="downloadCode"
-                  class="btn btn-secondary"
+                  class="btn btn-sm btn-secondary"
+                  title="Ctrl+D"
                 >
                   📥 Download
+                </button>
+                <button 
+                  v-if="targetLanguage"
+                  @click="showSetupGuidePanel"
+                  class="btn btn-sm btn-secondary"
+                  title="Setup Guide"
+                >
+                  ⚙️ Setup
                 </button>
               </div>
             </div>
@@ -182,6 +245,125 @@
                 readonly
               ></textarea>
             </div>
+            <div v-if="convertedStats" class="code-stats">
+              <span>📊 {{ convertedStats.lines }} lines</span>
+              <span>🔤 {{ convertedStats.characters }} chars</span>
+              <span>📝 {{ convertedStats.nonEmptyLines }} non-empty</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Code Explanation Panel -->
+        <div v-if="explanation" class="explanation-panel glass-card">
+          <div class="editor-header">
+            <h3>💡 Code Explanation</h3>
+            <button 
+              @click="explanation = ''"
+              class="btn btn-secondary"
+            >
+              ✕ Close
+            </button>
+          </div>
+          <div class="explanation-content">
+            <div v-html="explanation.replace(/\n/g, '<br>')" class="explanation-text"></div>
+          </div>
+        </div>
+        
+        <!-- History Panel -->
+        <div v-if="showHistory" class="history-panel glass-card">
+          <div class="editor-header">
+            <h3>📜 Conversion History</h3>
+            <div class="header-actions">
+              <button @click="clearAllHistory" class="btn btn-sm btn-secondary" v-if="history.length">
+                🗑️ Clear All
+              </button>
+              <button @click="showHistory = false" class="btn btn-sm btn-secondary">
+                ✕ Close
+              </button>
+            </div>
+          </div>
+          <div class="history-content">
+            <div v-if="!history.length" class="empty-state">
+              <p>No conversion history yet</p>
+            </div>
+            <div v-else class="history-list">
+              <div 
+                v-for="item in history" 
+                :key="item.id" 
+                class="history-item"
+                @click="loadFromHistory(item)"
+              >
+                <div class="history-header">
+                  <span class="language-badge">{{ item.sourceLanguage }}</span>
+                  <span>→</span>
+                  <span class="language-badge">{{ item.targetLanguage }}</span>
+                  <span class="history-time">{{ new Date(item.timestamp).toLocaleString() }}</span>
+                </div>
+                <div class="history-preview">{{ item.sourceCode.substring(0, 100) }}...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Setup Guide Panel -->
+        <div v-if="showSetupGuide && setupGuide" class="setup-guide-panel glass-card">
+          <div class="editor-header">
+            <h3>⚙️ {{ setupGuide.language }} Setup Guide</h3>
+            <button @click="showSetupGuide = false" class="btn btn-sm btn-secondary">
+              ✕ Close
+            </button>
+          </div>
+          <div class="setup-content">
+            <div class="setup-section">
+              <h4>📦 Dependencies</h4>
+              <ul>
+                <li v-for="dep in setupGuide.dependencies" :key="dep">{{ dep }}</li>
+              </ul>
+            </div>
+            
+            <div class="setup-section">
+              <h4>💻 Installation</h4>
+              <div class="code-block">
+                <code>{{ setupGuide.installCommand }}</code>
+                <button @click="copyToClipboard(setupGuide.installCommand)" class="copy-btn">📋</button>
+              </div>
+            </div>
+            
+            <div class="setup-section">
+              <h4>▶️ Run Command</h4>
+              <div class="code-block">
+                <code>{{ setupGuide.runCommand }}</code>
+                <button @click="copyToClipboard(setupGuide.runCommand)" class="copy-btn">📋</button>
+              </div>
+            </div>
+            
+            <div class="setup-section" v-if="setupGuide.configFiles.length">
+              <h4>📄 Configuration Files</h4>
+              <div v-for="file in setupGuide.configFiles" :key="file.name" class="config-file">
+                <div class="file-header">
+                  <strong>{{ file.name }}</strong>
+                  <button @click="copyToClipboard(file.content)" class="copy-btn">📋 Copy</button>
+                </div>
+                <pre class="file-content">{{ file.content }}</pre>
+              </div>
+            </div>
+            
+            <div class="setup-section">
+              <h4>💡 Quick Tips</h4>
+              <ul>
+                <li v-for="note in setupGuide.notes" :key="note">{{ note }}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Keyboard Shortcuts Help -->
+        <div class="shortcuts-hint glass-card">
+          <h4>⌨️ Keyboard Shortcuts</h4>
+          <div class="shortcuts-list">
+            <div><kbd>Ctrl+Enter</kbd> Convert Code</div>
+            <div><kbd>Ctrl+E</kbd> Explain Code</div>
+            <div><kbd>Ctrl+D</kbd> Download</div>
           </div>
         </div>
       </div>
@@ -190,10 +372,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { converterApi } from '@/api/converter';
 import { SUPPORTED_LANGUAGES } from '@/types';
-import type { Language } from '@/types';
+import type { Language, ViewMode } from '@/types';
+import { CODE_EXAMPLES } from '@/utils/codeExamples';
+import { saveToHistory, getHistory, clearHistory, type ConversionHistory } from '@/utils/localStorage';
+import { copyToClipboard } from '@/utils/clipboard';
+import { getCodeStats, type CodeStats } from '@/utils/codeStats';
+import { SETUP_GUIDES, type SetupGuide } from '@/utils/setupGuides';
 
 const languages = SUPPORTED_LANGUAGES;
 
@@ -207,6 +394,17 @@ const isDragging = ref(false);
 const isConverting = ref(false);
 const errorMessage = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
+const viewMode = ref<ViewMode>('single');
+const explanation = ref('');
+const isExplaining = ref(false);
+const showHistory = ref(false);
+const history = ref<ConversionHistory[]>([]);
+const copiedSource = ref(false);
+const copiedConverted = ref(false);
+const sourceStats = ref<CodeStats | null>(null);
+const convertedStats = ref<CodeStats | null>(null);
+const showSetupGuide = ref(false);
+const setupGuide = ref<SetupGuide | null>(null);
 
 // Computed
 const canConvert = computed(() => {
@@ -311,10 +509,20 @@ const convertCode = async () => {
       code: sourceCode.value.trim()
     }, (chunk) => {
       convertedCode.value += chunk;
+      updateConvertedStats();
     });
     
     if (!convertedCode.value.trim()) {
       errorMessage.value = 'No code was generated. Please try again.';
+    } else {
+      // Save to history
+      saveToHistory({
+        sourceLanguage: sourceLanguage.value,
+        targetLanguage: targetLanguage.value,
+        sourceCode: sourceCode.value,
+        convertedCode: convertedCode.value
+      });
+      loadHistory();
     }
   } catch (error: any) {
     errorMessage.value = error.message || 'Conversion failed. Please try again.';
@@ -335,6 +543,124 @@ const downloadCode = () => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
+
+const toggleViewMode = () => {
+  viewMode.value = viewMode.value === 'single' ? 'split' : 'single';
+};
+
+const explainCode = async () => {
+  if (!sourceLanguage.value || !sourceCode.value.trim()) {
+    errorMessage.value = 'Please provide code to explain';
+    return;
+  }
+  
+  isExplaining.value = true;
+  errorMessage.value = '';
+  explanation.value = '';
+  
+  try {
+    const response = await converterApi.explainCode({
+      language: sourceLanguage.value as Language,
+      code: sourceCode.value.trim()
+    });
+    
+    explanation.value = response.explanation;
+  } catch (error: any) {
+    errorMessage.value = error.message || 'Explanation failed. Please try again.';
+    console.error('Explanation error:', error);
+  } finally {
+    isExplaining.value = false;
+  }
+};
+
+const loadExample = () => {
+  if (sourceLanguage.value) {
+    sourceCode.value = CODE_EXAMPLES[sourceLanguage.value as Language];
+    updateSourceStats();
+  }
+};
+
+const copySource = async () => {
+  const success = await copyToClipboard(sourceCode.value);
+  if (success) {
+    copiedSource.value = true;
+    setTimeout(() => copiedSource.value = false, 2000);
+  }
+};
+
+const copyConverted = async () => {
+  const success = await copyToClipboard(convertedCode.value);
+  if (success) {
+    copiedConverted.value = true;
+    setTimeout(() => copiedConverted.value = false, 2000);
+  }
+};
+
+const updateSourceStats = () => {
+  if (sourceCode.value) {
+    sourceStats.value = getCodeStats(sourceCode.value);
+  } else {
+    sourceStats.value = null;
+  }
+};
+
+const updateConvertedStats = () => {
+  if (convertedCode.value) {
+    convertedStats.value = getCodeStats(convertedCode.value);
+  } else {
+    convertedStats.value = null;
+  }
+};
+
+const loadHistory = () => {
+  history.value = getHistory();
+};
+
+const loadFromHistory = (item: ConversionHistory) => {
+  sourceLanguage.value = item.sourceLanguage as Language;
+  targetLanguage.value = item.targetLanguage as Language;
+  sourceCode.value = item.sourceCode;
+  convertedCode.value = item.convertedCode;
+  showHistory.value = false;
+  updateSourceStats();
+  updateConvertedStats();
+};
+
+const clearAllHistory = () => {
+  if (confirm('Are you sure you want to clear all history?')) {
+    clearHistory();
+    loadHistory();
+  }
+};
+
+const showSetupGuidePanel = () => {
+  if (targetLanguage.value) {
+    setupGuide.value = SETUP_GUIDES[targetLanguage.value as Language];
+    showSetupGuide.value = true;
+  }
+};
+
+const handleKeyboard = (e: KeyboardEvent) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    convertCode();
+  } else if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+    e.preventDefault();
+    explainCode();
+  } else if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+    e.preventDefault();
+    if (convertedCode.value) downloadCode();
+  }
+};
+
+onMounted(() => {
+  loadHistory();
+  window.addEventListener('keydown', handleKeyboard);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyboard);
+});
 </script>
 
 <style scoped>
@@ -450,10 +776,252 @@ const downloadCode = () => {
   font-size: 0.875rem;
 }
 
+.button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  width: 100%;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
 .editors-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--spacing-xl);
+}
+
+.editors-container.split-view {
+  grid-template-columns: 1fr 1fr;
+}
+
+.explanation-panel {
+  margin-top: var(--spacing-xl);
+}
+
+.explanation-content {
+  padding: var(--spacing-lg);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.explanation-text {
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+}
+
+.quick-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.btn-sm {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: 0.875rem;
+}
+
+.code-stats {
+  display: flex;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.history-panel {
+  margin-top: var(--spacing-xl);
+}
+
+.history-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.history-item {
+  padding: var(--spacing-md);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.history-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--color-border-hover);
+  transform: translateX(4px);
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+  font-size: 0.875rem;
+}
+
+.history-time {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.history-preview {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-family: 'Monaco', 'Menlo', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-2xl);
+  color: var(--color-text-muted);
+}
+
+.shortcuts-hint {
+  margin-top: var(--spacing-xl);
+  padding: var(--spacing-lg);
+}
+
+.shortcuts-hint h4 {
+  margin-bottom: var(--spacing-md);
+  font-size: 1rem;
+}
+
+.shortcuts-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-sm);
+  font-size: 0.875rem;
+}
+
+kbd {
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.75rem;
+  margin-right: var(--spacing-xs);
+}
+
+.setup-guide-panel {
+  margin-top: var(--spacing-xl);
+}
+
+.setup-content {
+  padding: var(--spacing-lg);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.setup-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.setup-section h4 {
+  margin-bottom: var(--spacing-md);
+  color: var(--color-accent-primary);
+  font-size: 1rem;
+}
+
+.setup-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.setup-section li {
+  padding: var(--spacing-xs) 0;
+  padding-left: var(--spacing-lg);
+  position: relative;
+}
+
+.setup-section li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--color-accent-primary);
+}
+
+.code-block {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.875rem;
+}
+
+.code-block code {
+  flex: 1;
+  color: var(--color-text-primary);
+}
+
+.copy-btn {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all var(--transition-base);
+}
+
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: var(--color-border-hover);
+}
+
+.config-file {
+  margin-bottom: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.file-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.file-content {
+  padding: var(--spacing-md);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--color-text-secondary);
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  margin: 0;
 }
 
 .editor-panel {
@@ -528,7 +1096,12 @@ const downloadCode = () => {
     position: static;
   }
   
-  .editors-container {
+  .editors-container,
+  .editors-container.split-view {
+    grid-template-columns: 1fr;
+  }
+  
+  .button-group {
     grid-template-columns: 1fr;
   }
 }

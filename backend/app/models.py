@@ -24,6 +24,29 @@ class ConversionRequest(BaseModel):
         }
 
 
+class ExplainRequest(BaseModel):
+    """Request model for code explanation."""
+    
+    language: SourceLanguage = Field(..., description="Programming language")
+    code: str = Field(..., description="Code to explain", min_length=1)
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "language": "python",
+                "code": "def hello():\n    print('Hello, World!')"
+            }
+        }
+
+
+class ExplainResponse(BaseModel):
+    """Response model for code explanation."""
+    
+    explanation: str = Field(..., description="Code explanation")
+    language: str = Field(..., description="Programming language")
+    success: bool = Field(default=True, description="Explanation success status")
+
+
 class ConversionResponse(BaseModel):
     """Response model for code conversion."""
     

@@ -210,6 +210,96 @@ Converted Code ({target_lang}):"""
                 return "\n".join(lines[1:-1])
         return text
 
+    def _create_explanation_prompt(self, language: str, code: str) -> str:
+        """Create a prompt for code explanation."""
+        lang_display = self._get_language_display_name(language)
+        
+        prompt = f"""You are an expert software engineer. Explain the following {lang_display} code in a clear, concise way.
+
+Provide:
+1. **Overview**: What the code does (1-2 sentences)
+2. **Key Components**: Main functions, classes, or logic
+3. **How It Works**: Step-by-step explanation
+4. **Important Details**: Any notable patterns, algorithms, or best practices used
+
+Code ({lang_display}):
+{code}
+
+Explanation:"""
+        
+        return prompt
+
+    async def explain_code(self, language: str, code: str) -> str:
+        """Explain code using the configured provider."""
+        prompt = self._create_explanation_prompt(language, code)
+        
+        if self.provider == "groq":
+            return await self._explain_with_groq(prompt)
+        elif self.provider == "huggingface":
+            return await self._explain_with_huggingface(prompt)
+        else:
+            return await self._explain_with_openai(prompt)
+
+    async def _explain_with_groq(self, prompt: str) -> str:
+        """Explain using Groq API."""
+        try:
+            completion = self.groq_client.chat.completions.create(
+                model=settings.groq_model,
+                messages=[
+                    {"role": "system", "content": "You are an expert programmer who explains code clearly."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=2000,
+                timeout=30.0,
+            )
+            return completion.choices[0].message.content.strip()
+        except Exception as e:
+            raise Exception(f"Groq explanation failed: {str(e)}")
+
+    async def _explain_with_huggingface(self, prompt: str) -> str:
+        """Explain using Hugging Face API."""
+        try:
+            API_URL = "https://api-inference.huggingface.co/models/bigcode/starcoder2-15b"
+            headers = {"Authorization": f"Bearer {settings.huggingface_api_key}"}
+            
+            payload = {
+                "inputs": prompt,
+                "parameters": {
+                    "max_new_tokens": 1024,
+                    "temperature": 0.3,
+                    "return_full_text": False
+                }
+            }
+            
+            response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+            response.raise_for_status()
+            
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0:
+                return result[0].get("generated_text", "").strip()
+            return str(result).strip()
+            
+        except Exception as e:
+            raise Exception(f"Hugging Face explanation failed: {str(e)}")
+
+    async def _explain_with_openai(self, prompt: str) -> str:
+        """Explain using OpenAI API."""
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=settings.openai_model,
+                messages=[
+                    {"role": "system", "content": "You are an expert programmer who explains code clearly."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=2000,
+                timeout=30.0,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            raise Exception(f"OpenAI explanation failed: {str(e)}")
+
 
 # Singleton instance
 converter = CodeConverter()
