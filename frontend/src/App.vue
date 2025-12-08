@@ -191,13 +191,19 @@
               </div>
             </div>
             <div class="editor-wrapper">
-              <textarea 
-                v-model="sourceCode"
-                @input="updateSourceStats"
-                class="code-textarea"
-                placeholder="Paste your code here or upload a file..."
-                :disabled="isConverting"
-              ></textarea>
+              <div class="code-editor-container">
+                <pre class="code-display" v-if="sourceCode && !isEditingSource"><code :class="getHighlightClass(sourceLanguage)" v-html="highlightCode(sourceCode, sourceLanguage)"></code></pre>
+                <textarea 
+                  v-model="sourceCode"
+                  @input="updateSourceStats"
+                  @focus="isEditingSource = true"
+                  @blur="isEditingSource = false"
+                  class="code-textarea"
+                  :class="{ 'editing': isEditingSource }"
+                  placeholder="Paste your code here or upload a file..."
+                  :disabled="isConverting"
+                ></textarea>
+              </div>
             </div>
             <div v-if="sourceStats" class="code-stats">
               <span>📊 {{ sourceStats.lines }} lines</span>
@@ -238,12 +244,15 @@
               </div>
             </div>
             <div class="editor-wrapper">
-              <textarea 
-                v-model="convertedCode"
-                class="code-textarea"
-                placeholder="Converted code will appear here..."
-                readonly
-              ></textarea>
+              <div class="code-editor-container">
+                <pre class="code-display" v-if="convertedCode"><code :class="getHighlightClass(targetLanguage)" v-html="highlightCode(convertedCode, targetLanguage)"></code></pre>
+                <textarea 
+                  v-model="convertedCode"
+                  class="code-textarea code-textarea-hidden"
+                  placeholder="Converted code will appear here..."
+                  readonly
+                ></textarea>
+              </div>
             </div>
             <div v-if="convertedStats" class="code-stats">
               <span>📊 {{ convertedStats.lines }} lines</span>
@@ -253,60 +262,26 @@
           </div>
         </div>
         
-        <!-- Code Explanation Panel -->
-        <div v-if="explanation" class="explanation-panel glass-card">
-          <div class="editor-header">
-            <h3>💡 Code Explanation</h3>
-            <button 
-              @click="explanation = ''"
-              class="btn btn-secondary"
-            >
-              ✕ Close
-            </button>
-          </div>
-          <div class="explanation-content">
-            <div v-html="explanation.replace(/\n/g, '<br>')" class="explanation-text"></div>
-          </div>
-        </div>
-        
-        <!-- History Panel -->
-        <div v-if="showHistory" class="history-panel glass-card">
-          <div class="editor-header">
-            <h3>📜 Conversion History</h3>
-            <div class="header-actions">
-              <button @click="clearAllHistory" class="btn btn-sm btn-secondary" v-if="history.length">
-                🗑️ Clear All
-              </button>
-              <button @click="showHistory = false" class="btn btn-sm btn-secondary">
+        <!-- Side-by-side Panels Container -->
+        <div class="side-panels-container">
+          <!-- Code Explanation Panel -->
+          <div v-if="explanation" class="explanation-panel glass-card">
+            <div class="editor-header">
+              <h3>💡 Code Explanation</h3>
+              <button 
+                @click="explanation = ''"
+                class="btn btn-secondary"
+              >
                 ✕ Close
               </button>
             </div>
-          </div>
-          <div class="history-content">
-            <div v-if="!history.length" class="empty-state">
-              <p>No conversion history yet</p>
-            </div>
-            <div v-else class="history-list">
-              <div 
-                v-for="item in history" 
-                :key="item.id" 
-                class="history-item"
-                @click="loadFromHistory(item)"
-              >
-                <div class="history-header">
-                  <span class="language-badge">{{ item.sourceLanguage }}</span>
-                  <span>→</span>
-                  <span class="language-badge">{{ item.targetLanguage }}</span>
-                  <span class="history-time">{{ new Date(item.timestamp).toLocaleString() }}</span>
-                </div>
-                <div class="history-preview">{{ item.sourceCode.substring(0, 100) }}...</div>
-              </div>
+            <div class="explanation-content">
+              <div v-html="formatExplanation(explanation)" class="explanation-text"></div>
             </div>
           </div>
-        </div>
-        
-        <!-- Setup Guide Panel -->
-        <div v-if="showSetupGuide && setupGuide" class="setup-guide-panel glass-card">
+          
+          <!-- Setup Guide Panel -->
+          <div v-if="showSetupGuide && setupGuide" class="setup-guide-panel glass-card">
           <div class="editor-header">
             <h3>⚙️ {{ setupGuide.language }} Setup Guide</h3>
             <button @click="showSetupGuide = false" class="btn btn-sm btn-secondary">
@@ -355,6 +330,43 @@
               </ul>
             </div>
           </div>
+          </div>
+        </div>
+        
+        <!-- History Panel -->
+        <div v-if="showHistory" class="history-panel glass-card">
+          <div class="editor-header">
+            <h3>📜 Conversion History</h3>
+            <div class="header-actions">
+              <button @click="clearAllHistory" class="btn btn-sm btn-secondary" v-if="history.length">
+                🗑️ Clear All
+              </button>
+              <button @click="showHistory = false" class="btn btn-sm btn-secondary">
+                ✕ Close
+              </button>
+            </div>
+          </div>
+          <div class="history-content">
+            <div v-if="!history.length" class="empty-state">
+              <p>No conversion history yet</p>
+            </div>
+            <div v-else class="history-list">
+              <div 
+                v-for="item in history" 
+                :key="item.id" 
+                class="history-item"
+                @click="loadFromHistory(item)"
+              >
+                <div class="history-header">
+                  <span class="language-badge">{{ item.sourceLanguage }}</span>
+                  <span>→</span>
+                  <span class="language-badge">{{ item.targetLanguage }}</span>
+                  <span class="history-time">{{ new Date(item.timestamp).toLocaleString() }}</span>
+                </div>
+                <div class="history-preview">{{ item.sourceCode.substring(0, 100) }}...</div>
+              </div>
+            </div>
+          </div>
         </div>
         
         <!-- Keyboard Shortcuts Help -->
@@ -372,7 +384,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { converterApi } from '@/api/converter';
 import { SUPPORTED_LANGUAGES } from '@/types';
 import type { Language, ViewMode } from '@/types';
@@ -381,6 +393,31 @@ import { saveToHistory, getHistory, clearHistory, type ConversionHistory } from 
 import { copyToClipboard } from '@/utils/clipboard';
 import { getCodeStats, type CodeStats } from '@/utils/codeStats';
 import { SETUP_GUIDES, type SetupGuide } from '@/utils/setupGuides';
+import hljs from 'highlight.js/lib/core';
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import python from 'highlight.js/lib/languages/python';
+import java from 'highlight.js/lib/languages/java';
+import php from 'highlight.js/lib/languages/php';
+import go from 'highlight.js/lib/languages/go';
+import c from 'highlight.js/lib/languages/c';
+import cpp from 'highlight.js/lib/languages/cpp';
+import csharp from 'highlight.js/lib/languages/csharp';
+import rust from 'highlight.js/lib/languages/rust';
+import sql from 'highlight.js/lib/languages/sql';
+import 'highlight.js/styles/vs2015.css';
+
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('java', java);
+hljs.registerLanguage('php', php);
+hljs.registerLanguage('go', go);
+hljs.registerLanguage('c', c);
+hljs.registerLanguage('cpp', cpp);
+hljs.registerLanguage('csharp', csharp);
+hljs.registerLanguage('rust', rust);
+hljs.registerLanguage('sql', sql);
 
 const languages = SUPPORTED_LANGUAGES;
 
@@ -405,6 +442,7 @@ const sourceStats = ref<CodeStats | null>(null);
 const convertedStats = ref<CodeStats | null>(null);
 const showSetupGuide = ref(false);
 const setupGuide = ref<SetupGuide | null>(null);
+const isEditingSource = ref(false);
 
 // Computed
 const canConvert = computed(() => {
@@ -640,6 +678,63 @@ const showSetupGuidePanel = () => {
   }
 };
 
+const getHighlightClass = (lang: Language | '') => {
+  const langMap: Record<string, string> = {
+    'python': 'language-python',
+    'javascript': 'language-javascript',
+    'typescript': 'language-typescript',
+    'nodejs': 'language-javascript',
+    'java': 'language-java',
+    'php': 'language-php',
+    'go': 'language-go',
+    'c': 'language-c',
+    'cpp': 'language-cpp',
+    'csharp': 'language-csharp',
+    'rust': 'language-rust',
+    'sql': 'language-sql',
+    'prisma': 'language-javascript'
+  };
+  return langMap[lang as string] || 'language-plaintext';
+};
+
+const highlightCode = (code: string, lang: Language | '') => {
+  if (!code) return '';
+  const langMap: Record<string, string> = {
+    'python': 'python',
+    'javascript': 'javascript',
+    'typescript': 'typescript',
+    'nodejs': 'javascript',
+    'java': 'java',
+    'php': 'php',
+    'go': 'go',
+    'c': 'c',
+    'cpp': 'cpp',
+    'csharp': 'csharp',
+    'rust': 'rust',
+    'sql': 'sql',
+    'prisma': 'javascript'
+  };
+  const language = langMap[lang as string];
+  if (language) {
+    try {
+      return hljs.highlight(code, { language }).value;
+    } catch (e) {
+      return code;
+    }
+  }
+  return code;
+};
+
+const formatExplanation = (text: string): string => {
+  let counter = 1;
+  return text
+    .replace(/^###\s+(.+)$/gm, (_, title) => `<div class="section-title">${counter++}. ${title}</div>`)
+    .replace(/^##\s+(.+)$/gm, '<div class="section-heading">$1</div>')
+    .replace(/^\*\*(.+?)\*\*:?/gm, '<div class="bullet-point">• $1</div>')
+    .replace(/^-\s+(.+)$/gm, '<div class="bullet-point">• $1</div>')
+    .replace(/\n/g, '<br>');
+};
+
 const handleKeyboard = (e: KeyboardEvent) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
@@ -671,6 +766,9 @@ onUnmounted(() => {
 }
 
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   padding: var(--spacing-xl) 0;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-glass);
@@ -697,8 +795,7 @@ onUnmounted(() => {
 }
 
 .control-panel {
-  position: sticky;
-  top: var(--spacing-xl);
+  /* Removed sticky positioning - scrolls with content */
 }
 
 .label {
@@ -804,20 +901,49 @@ onUnmounted(() => {
   grid-template-columns: 1fr 1fr;
 }
 
-.explanation-panel {
+.side-panels-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xl);
+  grid-column: 1 / -1;
   margin-top: var(--spacing-xl);
 }
 
+.explanation-panel,
+.setup-guide-panel {
+  margin-top: 0;
+}
+
 .explanation-content {
-  padding: var(--spacing-lg);
-  max-height: 400px;
+  padding: var(--spacing-xl);
+  max-height: 700px;
   overflow-y: auto;
 }
 
 .explanation-text {
-  line-height: 1.8;
+  line-height: 2;
   color: var(--color-text-secondary);
-  white-space: pre-wrap;
+  font-size: 1rem;
+}
+
+.explanation-text .section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-accent-primary);
+  margin: var(--spacing-lg) 0 var(--spacing-md) 0;
+}
+
+.explanation-text .section-heading {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+}
+
+.explanation-text .bullet-point {
+  padding-left: var(--spacing-md);
+  margin: var(--spacing-xs) 0;
+  color: var(--color-text-secondary);
 }
 
 .quick-actions {
@@ -926,24 +1052,22 @@ kbd {
   margin-right: var(--spacing-xs);
 }
 
-.setup-guide-panel {
-  margin-top: var(--spacing-xl);
-}
+
 
 .setup-content {
-  padding: var(--spacing-lg);
-  max-height: 600px;
+  padding: var(--spacing-md);
+  max-height: 700px;
   overflow-y: auto;
 }
 
 .setup-section {
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
 }
 
 .setup-section h4 {
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
   color: var(--color-accent-primary);
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .setup-section ul {
@@ -969,7 +1093,7 @@ kbd {
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-md);
-  background: rgba(0, 0, 0, 0.4);
+  background: #1e1e1e;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-family: 'Monaco', 'Menlo', monospace;
@@ -978,7 +1102,7 @@ kbd {
 
 .code-block code {
   flex: 1;
-  color: var(--color-text-primary);
+  color: #d4d4d4;
 }
 
 .copy-btn {
@@ -1015,8 +1139,8 @@ kbd {
 
 .file-content {
   padding: var(--spacing-md);
-  background: rgba(0, 0, 0, 0.4);
-  color: var(--color-text-secondary);
+  background: #1e1e1e;
+  color: #d4d4d4;
   font-family: 'Monaco', 'Menlo', monospace;
   font-size: 0.75rem;
   line-height: 1.6;
@@ -1059,22 +1183,72 @@ kbd {
 .editor-wrapper {
   flex: 1;
   display: flex;
+  position: relative;
+}
+
+.code-editor-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+}
+
+.code-display {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: var(--spacing-md);
+  margin: 0;
+  background: #1e1e1e;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  pointer-events: none;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.code-display code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
 }
 
 .code-textarea {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   min-height: 500px;
   padding: var(--spacing-md);
-  background: var(--color-bg-primary);
+  background: transparent;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  color: var(--color-text-primary);
+  color: #d4d4d4;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.875rem;
   line-height: 1.6;
   resize: vertical;
   transition: all var(--transition-base);
+  caret-color: #d4d4d4;
+}
+
+.code-textarea.editing {
+  background: #1e1e1e;
+  z-index: 1;
+}
+
+.code-textarea-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.code-textarea:not(.editing):not([readonly]) {
+  color: transparent;
 }
 
 .code-textarea:focus {
@@ -1093,7 +1267,7 @@ kbd {
   }
   
   .control-panel {
-    position: static;
+    /* Already not sticky */
   }
   
   .editors-container,
@@ -1103,6 +1277,18 @@ kbd {
   
   .button-group {
     grid-template-columns: 1fr;
+  }
+  
+  .explanation-content {
+    max-height: none;
+  }
+  
+  .setup-content {
+    max-height: none;
+  }
+  
+  .header {
+    position: relative;
   }
 }
 </style>
