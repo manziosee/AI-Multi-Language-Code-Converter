@@ -214,13 +214,21 @@ Converted Code ({target_lang}):"""
         """Create a prompt for code explanation."""
         lang_display = self._get_language_display_name(language)
         
-        prompt = f"""You are an expert software engineer. Explain the following {lang_display} code in a clear, concise way.
+        prompt = f"""You are an expert software engineer. Explain the following {lang_display} code in a clear, detailed way.
 
-Provide:
-1. **Overview**: What the code does (1-2 sentences)
-2. **Key Components**: Main functions, classes, or logic
-3. **How It Works**: Step-by-step explanation
-4. **Important Details**: Any notable patterns, algorithms, or best practices used
+Format your response with these sections (use ### for section titles):
+
+### Overview
+What the code does in 2-3 sentences
+
+### Key Components
+List main functions, classes, or logic (use bullet points with - )
+
+### How It Works
+Step-by-step explanation of the logic flow
+
+### Important Details
+Notable patterns, algorithms, or best practices
 
 Code ({lang_display}):
 {code}
