@@ -103,9 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps } from 'vue';
-
-defineProps<{
+const props = defineProps<{
   analysis: any;
 }>();
 
