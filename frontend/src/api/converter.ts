@@ -14,7 +14,7 @@ export const converterApi = {
   /**
    * Convert code from one language to another
    */
-  async convertCode(request: ConversionRequest): Promise<ConversionResponse> {
+  async convertCode(request: ConversionRequest & { auto_format?: boolean; include_analysis?: boolean }): Promise<ConversionResponse> {
     const response = await apiClient.post<ConversionResponse>('/convert', request);
     return response.data;
   },
@@ -83,6 +83,38 @@ export const converterApi = {
    */
   async explainCode(request: { language: string; code: string }): Promise<{ explanation: string; language: string; success: boolean }> {
     const response = await apiClient.post('/explain', request);
+    return response.data;
+  },
+
+  /**
+   * Analyze code for complexity, performance, and security
+   */
+  async analyzeCode(request: { language: string; code: string }): Promise<any> {
+    const response = await apiClient.post('/analyze', request);
+    return response.data;
+  },
+
+  /**
+   * Execute code in sandbox
+   */
+  async executeCode(request: { language: string; code: string }): Promise<{ success: boolean; output: string; error: string }> {
+    const response = await apiClient.post('/execute', request);
+    return response.data;
+  },
+
+  /**
+   * Batch convert multiple files
+   */
+  async batchConvert(request: { files: Array<{ name: string; code: string }>; source_language: string; target_language: string }): Promise<any> {
+    const response = await apiClient.post('/batch-convert', request);
+    return response.data;
+  },
+
+  /**
+   * Format code
+   */
+  async formatCode(request: { language: string; code: string }): Promise<{ formatted_code: string; success: boolean }> {
+    const response = await apiClient.post('/format', request);
     return response.data;
   },
 

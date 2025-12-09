@@ -136,6 +136,13 @@
                 >
                   {{ copiedSource ? '✓ Copied!' : '📋 Copy' }}
                 </button>
+                <button 
+                  v-if="sourceCode"
+                  @click="clearSource"
+                  class="btn btn-sm btn-secondary"
+                >
+                  🗑️ Clear
+                </button>
               </div>
             </div>
             <div class="editor-wrapper">
@@ -338,6 +345,7 @@ import { copyToClipboard } from '@/utils/clipboard';
 import { getCodeStats, type CodeStats } from '@/utils/codeStats';
 import { SETUP_GUIDES, type SetupGuide } from '@/utils/setupGuides';
 import { detectLanguage } from '@/utils/languageDetector';
+import { validateSyntax } from '@/utils/syntaxValidator';
 import hljs from 'highlight.js/lib/core';
 import javascript from 'highlight.js/lib/languages/javascript';
 import typescript from 'highlight.js/lib/languages/typescript';
@@ -506,6 +514,18 @@ const convertCode = async () => {
     return;
   }
   
+  // Basic syntax validation
+  const syntaxError = validateSyntax(sourceCode.value, sourceLanguage.value as Language);
+  if (syntaxError) {
+    errorMessage.value = `⚠️ Syntax Error Detected: ${syntaxError}\n\nPlease fix the error before converting. The conversion may produce incorrect results with syntax errors.`;
+    
+    // Ask user if they want to proceed anyway
+    if (!confirm(`Syntax error detected:\n${syntaxError}\n\nDo you want to proceed with conversion anyway?`)) {
+      return;
+    }
+    errorMessage.value = '';
+  }
+  
   isConverting.value = true;
   errorMessage.value = '';
   convertedCode.value = '';
@@ -604,6 +624,14 @@ const copyConverted = async () => {
   }
 };
 
+const clearSource = () => {
+  sourceCode.value = '';
+  sourceStats.value = null;
+  sourceLanguage.value = '';
+  targetLanguage.value = '';
+  uploadedFile.value = null;
+};
+
 const updateSourceStats = () => {
   if (sourceCode.value) {
     sourceStats.value = getCodeStats(sourceCode.value);
@@ -617,6 +645,9 @@ const updateSourceStats = () => {
     }
   } else {
     sourceStats.value = null;
+    // Clear language selection when code is cleared
+    sourceLanguage.value = '';
+    targetLanguage.value = '';
   }
 };
 

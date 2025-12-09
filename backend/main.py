@@ -5,8 +5,18 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.config import settings
-from app.models import ConversionRequest, ConversionResponse, ErrorResponse, ExplainRequest, ExplainResponse
+from app.models import (
+    ConversionRequest, ConversionResponse, ErrorResponse, 
+    ExplainRequest, ExplainResponse, AnalyzeRequest, 
+    ExecuteRequest, ExecuteResponse, BatchConversionRequest
+)
 from app.converter import converter
+from app.analyzers import (
+    analyze_complexity, analyze_performance, analyze_security,
+    get_code_review, calculate_confidence_score
+)
+from app.formatter import format_code
+from app.executor import execute_code
 import logging
 
 # Configure logging
@@ -88,14 +98,14 @@ async def convert_code_stream(request: Request, conv_request: ConversionRequest)
 @limiter.limit("20/minute")
 async def convert_code(request: Request, conv_request: ConversionRequest):
     """
-    Convert code from one language to another.
+    Convert code from one language to another with optional analysis.
     
     Args:
         request: FastAPI Request
         conv_request: ConversionRequest with source_language, target_language, and code
         
     Returns:
-        ConversionResponse with converted code
+        ConversionResponse with converted code and analysis
         
     Raises:
         HTTPException: If conversion fails
@@ -117,17 +127,52 @@ async def convert_code(request: Request, conv_request: ConversionRequest):
                 detail="Code is too large. Maximum 100,000 characters allowed."
             )
         
+        # Auto-format if requested
+        code_to_convert = conv_request.code
+        if conv_request.auto_format:
+            code_to_convert = format_code(code_to_convert, conv_request.source_language)
+        
         # Perform conversion
-        converted_code = await converter.convert_code(conv_request)
+        converted_code = await converter.convert_code(ConversionRequest(
+            source_language=conv_request.source_language,
+            target_language=conv_request.target_language,
+            code=code_to_convert
+        ))
         
-        logger.info("Conversion successful")
-        
-        return ConversionResponse(
+        # Prepare response
+        response = ConversionResponse(
             converted_code=converted_code,
             source_language=conv_request.source_language,
             target_language=conv_request.target_language,
             success=True
         )
+        
+        # Add analysis if requested
+        if conv_request.include_analysis:
+            response.confidence_score = calculate_confidence_score(
+                conv_request.code, 
+                conv_request.source_language, 
+                conv_request.target_language
+            )
+            response.complexity_analysis = analyze_complexity(
+                conv_request.code, 
+                conv_request.source_language
+            )
+            response.performance_analysis = analyze_performance(
+                conv_request.code, 
+                conv_request.source_language
+            )
+            response.security_analysis = analyze_security(
+                conv_request.code, 
+                conv_request.source_language
+            )
+            response.code_review = get_code_review(
+                conv_request.code, 
+                conv_request.source_language
+            )
+        
+        logger.info("Conversion successful")
+        return response
         
     except HTTPException:
         raise
@@ -243,6 +288,115 @@ async def explain_code(request: Request, explain_request: ExplainRequest):
             status_code=500,
             detail=f"Code explanation failed: {str(e)}"
         )
+
+
+@app.post("/analyze")
+@limiter.limit("20/minute")
+async def analyze_code(request: Request, analyze_request: AnalyzeRequest):
+    """
+    Analyze code for complexity, performance, and security issues.
+    """
+    try:
+        logger.info(f"Analyzing {analyze_request.language} code")
+        
+        return {
+            "complexity": analyze_complexity(analyze_request.code, analyze_request.language),
+            "performance": analyze_performance(analyze_request.code, analyze_request.language),
+            "security": analyze_security(analyze_request.code, analyze_request.language),
+            "code_review": get_code_review(analyze_request.code, analyze_request.language),
+            "success": True
+        }
+    except Exception as e:
+        logger.error(f"Analysis error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/execute", response_model=ExecuteResponse)
+@limiter.limit("10/minute")
+async def execute_code_endpoint(request: Request, exec_request: ExecuteRequest):
+    """
+    Execute code in a sandbox environment (Python/JavaScript only).
+    """
+    try:
+        logger.info(f"Executing {exec_request.language} code")
+        
+        if len(exec_request.code) > 10000:
+            raise HTTPException(
+                status_code=400,
+                detail="Code too large for execution. Maximum 10,000 characters."
+            )
+        
+        result = execute_code(exec_request.code, exec_request.language)
+        return ExecuteResponse(**result)
+        
+    except Exception as e:
+        logger.error(f"Execution error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/batch-convert")
+@limiter.limit("5/minute")
+async def batch_convert(request: Request, batch_request: BatchConversionRequest):
+    """
+    Convert multiple files at once.
+    """
+    try:
+        logger.info(f"Batch converting {len(batch_request.files)} files")
+        
+        if len(batch_request.files) > 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum 10 files allowed per batch"
+            )
+        
+        results = []
+        for file_data in batch_request.files:
+            try:
+                conv_request = ConversionRequest(
+                    source_language=batch_request.source_language,
+                    target_language=batch_request.target_language,
+                    code=file_data['code']
+                )
+                converted = await converter.convert_code(conv_request)
+                results.append({
+                    'name': file_data['name'],
+                    'converted_code': converted,
+                    'success': True
+                })
+            except Exception as e:
+                results.append({
+                    'name': file_data['name'],
+                    'error': str(e),
+                    'success': False
+                })
+        
+        return {
+            'results': results,
+            'total': len(batch_request.files),
+            'successful': sum(1 for r in results if r['success']),
+            'failed': sum(1 for r in results if not r['success'])
+        }
+        
+    except Exception as e:
+        logger.error(f"Batch conversion error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/format")
+@limiter.limit("20/minute")
+async def format_code_endpoint(request: Request, analyze_request: AnalyzeRequest):
+    """
+    Format code according to language conventions.
+    """
+    try:
+        formatted = format_code(analyze_request.code, analyze_request.language)
+        return {
+            'formatted_code': formatted,
+            'success': True
+        }
+    except Exception as e:
+        logger.error(f"Formatting error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
