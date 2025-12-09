@@ -11,7 +11,7 @@
         accept=".py,.js,.ts,.java,.php,.go,.c,.cpp,.cs,.rs,.sql"
         style="display: none"
       />
-      <button @click="$refs.fileInput.click()" class="upload-button">
+      <button @click="fileInput?.click()" class="upload-button">
         📁 Select Files (Max 10)
       </button>
       <p>or drag and drop files here</p>
@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineProps } from 'vue';
+import { ref } from 'vue';
 import { converterApi } from '@/api/converter';
 
 const props = defineProps<{
@@ -65,7 +65,7 @@ const props = defineProps<{
   targetLanguage: string;
 }>();
 
-const fileInput = ref<HTMLInputElement>();
+const fileInput = ref<HTMLInputElement | null>(null);
 const files = ref<File[]>([]);
 const isConverting = ref(false);
 const results = ref<any[]>([]);

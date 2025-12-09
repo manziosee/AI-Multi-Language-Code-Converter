@@ -339,7 +339,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { converterApi } from '@/api/converter';
 import { SUPPORTED_LANGUAGES, VALID_CONVERSIONS } from '@/types';
 import type { Language, ViewMode } from '@/types';
-import { CODE_EXAMPLES } from '@/utils/codeExamples';
+
 import { saveToHistory, getHistory, clearHistory, type ConversionHistory } from '@/utils/localStorage';
 import { copyToClipboard } from '@/utils/clipboard';
 import { getCodeStats, type CodeStats } from '@/utils/codeStats';
@@ -425,17 +425,7 @@ const triggerFileInput = () => {
   fileInput.value?.click();
 };
 
-const getStarStyle = () => {
-  const size = Math.random() * 2 + 1;
-  return {
-    top: `${Math.random() * 100}%`,
-    left: `${Math.random() * 100}%`,
-    width: `${size}px`,
-    height: `${size}px`,
-    '--duration': `${Math.random() * 3 + 2}s`,
-    '--opacity': Math.random() * 0.7 + 0.3
-  };
-};
+
 
 const handleFileSelect = (event: Event) => {
   const target = event.target as HTMLInputElement;
@@ -601,12 +591,7 @@ const explainCode = async () => {
   }
 };
 
-const loadExample = () => {
-  if (sourceLanguage.value) {
-    sourceCode.value = CODE_EXAMPLES[sourceLanguage.value as Language];
-    updateSourceStats();
-  }
-};
+
 
 const copySource = async () => {
   const success = await copyToClipboard(sourceCode.value);
