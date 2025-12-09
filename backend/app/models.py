@@ -3,8 +3,8 @@ from typing import Literal
 
 
 # Supported programming languages
-SourceLanguage = Literal["python", "php", "java", "sql", "nodejs", "typescript", "golang", "prisma", "c", "cpp", "csharp", "rust", "javascript"]
-TargetLanguage = Literal["python", "php", "java", "sql", "nodejs", "typescript", "golang", "prisma", "c", "cpp", "csharp", "rust", "javascript"]
+SourceLanguage = Literal["python", "php", "java", "sql", "nodejs", "typescript", "golang", "prisma", "drizzle", "c", "cpp", "csharp", "rust", "javascript"]
+TargetLanguage = Literal["python", "php", "java", "sql", "nodejs", "typescript", "golang", "prisma", "drizzle", "c", "cpp", "csharp", "rust", "javascript"]
 
 
 class ConversionRequest(BaseModel):

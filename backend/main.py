@@ -1,6 +1,9 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from app.config import settings
 from app.models import ConversionRequest, ConversionResponse, ErrorResponse, ExplainRequest, ExplainResponse
 from app.converter import converter
@@ -10,6 +13,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Multi-Language Code Converter",
@@ -18,6 +24,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS - Allow all origins
 app.add_middleware(
@@ -51,21 +60,22 @@ async def health_check():
 
 
 @app.post("/convert/stream")
-async def convert_code_stream(request: ConversionRequest):
+@limiter.limit("20/minute")
+async def convert_code_stream(request: Request, conv_request: ConversionRequest):
     """
     Stream code conversion from one language to another.
     """
     try:
-        logger.info(f"Streaming conversion {request.source_language} to {request.target_language}")
+        logger.info(f"Streaming conversion {conv_request.source_language} to {conv_request.target_language}")
         
-        if request.source_language == request.target_language:
+        if conv_request.source_language == conv_request.target_language:
             raise HTTPException(
                 status_code=400,
                 detail="Source and target languages must be different"
             )
             
         return StreamingResponse(
-            converter.convert_code_stream(request),
+            converter.convert_code_stream(conv_request),
             media_type="text/event-stream"
         )
         
@@ -75,12 +85,14 @@ async def convert_code_stream(request: ConversionRequest):
 
 
 @app.post("/convert", response_model=ConversionResponse)
-async def convert_code(request: ConversionRequest):
+@limiter.limit("20/minute")
+async def convert_code(request: Request, conv_request: ConversionRequest):
     """
     Convert code from one language to another.
     
     Args:
-        request: ConversionRequest with source_language, target_language, and code
+        request: FastAPI Request
+        conv_request: ConversionRequest with source_language, target_language, and code
         
     Returns:
         ConversionResponse with converted code
@@ -89,31 +101,31 @@ async def convert_code(request: ConversionRequest):
         HTTPException: If conversion fails
     """
     try:
-        logger.info(f"Converting {request.source_language} to {request.target_language}")
+        logger.info(f"Converting {conv_request.source_language} to {conv_request.target_language}")
         
         # Validate that source and target languages are different
-        if request.source_language == request.target_language:
+        if conv_request.source_language == conv_request.target_language:
             raise HTTPException(
                 status_code=400,
                 detail="Source and target languages must be different"
             )
         
         # Validate code length
-        if len(request.code) > 100000:
+        if len(conv_request.code) > 100000:
             raise HTTPException(
                 status_code=400,
                 detail="Code is too large. Maximum 100,000 characters allowed."
             )
         
         # Perform conversion
-        converted_code = await converter.convert_code(request)
+        converted_code = await converter.convert_code(conv_request)
         
         logger.info("Conversion successful")
         
         return ConversionResponse(
             converted_code=converted_code,
-            source_language=request.source_language,
-            target_language=request.target_language,
+            source_language=conv_request.source_language,
+            target_language=conv_request.target_language,
             success=True
         )
         
@@ -155,14 +167,14 @@ async def convert_file(
         logger.info(f"File uploaded: {file.filename}, size: {len(code)} bytes")
         
         # Create conversion request
-        request = ConversionRequest(
+        conv_request = ConversionRequest(
             source_language=source_language,
             target_language=target_language,
             code=code
         )
         
         # Perform conversion
-        converted_code = await converter.convert_code(request)
+        converted_code = await converter.convert_code(conv_request)
         
         logger.info("File conversion successful")
         
@@ -187,12 +199,14 @@ async def convert_file(
 
 
 @app.post("/explain", response_model=ExplainResponse)
-async def explain_code(request: ExplainRequest):
+@limiter.limit("20/minute")
+async def explain_code(request: Request, explain_request: ExplainRequest):
     """
     Explain code in natural language.
     
     Args:
-        request: ExplainRequest with language and code
+        request: FastAPI Request
+        explain_request: ExplainRequest with language and code
         
     Returns:
         ExplainResponse with code explanation
@@ -201,23 +215,23 @@ async def explain_code(request: ExplainRequest):
         HTTPException: If explanation fails
     """
     try:
-        logger.info(f"Explaining {request.language} code")
+        logger.info(f"Explaining {explain_request.language} code")
         
         # Validate code length
-        if len(request.code) > 50000:
+        if len(explain_request.code) > 50000:
             raise HTTPException(
                 status_code=400,
                 detail="Code is too large. Maximum 50,000 characters allowed."
             )
         
         # Get explanation
-        explanation = await converter.explain_code(request.language, request.code)
+        explanation = await converter.explain_code(explain_request.language, explain_request.code)
         
         logger.info("Explanation successful")
         
         return ExplainResponse(
             explanation=explanation,
-            language=request.language,
+            language=explain_request.language,
             success=True
         )
         

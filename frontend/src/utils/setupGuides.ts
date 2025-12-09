@@ -333,6 +333,44 @@ CREATE TABLE users (
     ]
   },
 
+  drizzle: {
+    language: 'Drizzle ORM',
+    dependencies: ['Node.js 18+', 'Drizzle ORM', 'Drizzle Kit'],
+    packageManager: 'npm',
+    installCommand: 'npm install drizzle-orm && npm install -D drizzle-kit',
+    runCommand: 'npx drizzle-kit generate:pg',
+    configFiles: [
+      {
+        name: 'drizzle.config.ts',
+        content: `import type { Config } from 'drizzle-kit';
+
+export default {
+  schema: './src/schema.ts',
+  out: './drizzle',
+  driver: 'pg',
+  dbCredentials: {
+    connectionString: process.env.DATABASE_URL!,
+  },
+} satisfies Config;`
+      },
+      {
+        name: 'schema.ts',
+        content: `import { pgTable, serial, text, varchar } from 'drizzle-orm/pg-core';
+
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+});`
+      }
+    ],
+    notes: [
+      'Install: npm install drizzle-orm',
+      'Install dev tools: npm install -D drizzle-kit',
+      'Generate migrations: npx drizzle-kit generate:pg',
+      'Push to database: npx drizzle-kit push:pg'
+    ]
+  },
+
   prisma: {
     language: 'Prisma',
     dependencies: ['Node.js 18+', 'Prisma CLI'],
@@ -351,5 +389,5 @@ CREATE TABLE users (
       'Generate client: npx prisma generate',
       'Run migrations: npx prisma migrate dev'
     ]
-  }
+  },
 };
