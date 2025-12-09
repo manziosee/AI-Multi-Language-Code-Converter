@@ -8,6 +8,7 @@ export type Language =
   | 'typescript' 
   | 'sql' 
   | 'prisma'
+  | 'drizzle'
   | 'c'
   | 'cpp'
   | 'csharp'
@@ -65,4 +66,23 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
   { value: 'rust', label: 'Rust', extension: '.rs', monacoLanguage: 'rust' },
   { value: 'sql', label: 'SQL', extension: '.sql', monacoLanguage: 'sql' },
   { value: 'prisma', label: 'Prisma Schema', extension: '.prisma', monacoLanguage: 'prisma' },
+  { value: 'drizzle', label: 'Drizzle ORM', extension: '.ts', monacoLanguage: 'typescript' },
 ];
+
+// Valid conversion pairs
+export const VALID_CONVERSIONS: Record<Language, Language[]> = {
+  python: ['nodejs', 'javascript', 'typescript', 'java', 'php', 'golang', 'c', 'cpp', 'csharp', 'rust'],
+  nodejs: ['python', 'javascript', 'typescript', 'java', 'php', 'golang', 'c', 'cpp', 'csharp', 'rust'],
+  javascript: ['python', 'nodejs', 'typescript', 'java', 'php', 'golang', 'c', 'cpp', 'csharp', 'rust'],
+  typescript: ['python', 'nodejs', 'javascript', 'java', 'php', 'golang', 'c', 'cpp', 'csharp', 'rust'],
+  java: ['python', 'nodejs', 'javascript', 'typescript', 'php', 'golang', 'c', 'cpp', 'csharp', 'rust'],
+  php: ['python', 'nodejs', 'javascript', 'typescript', 'java', 'golang', 'c', 'cpp', 'csharp', 'rust'],
+  golang: ['python', 'nodejs', 'javascript', 'typescript', 'java', 'php', 'c', 'cpp', 'csharp', 'rust'],
+  c: ['python', 'nodejs', 'javascript', 'typescript', 'java', 'php', 'golang', 'cpp', 'csharp', 'rust'],
+  cpp: ['python', 'nodejs', 'javascript', 'typescript', 'java', 'php', 'golang', 'c', 'csharp', 'rust'],
+  csharp: ['python', 'nodejs', 'javascript', 'typescript', 'java', 'php', 'golang', 'c', 'cpp', 'rust'],
+  rust: ['python', 'nodejs', 'javascript', 'typescript', 'java', 'php', 'golang', 'c', 'cpp', 'csharp'],
+  sql: ['prisma', 'drizzle'],
+  prisma: ['sql', 'drizzle'],
+  drizzle: ['sql', 'prisma'],
+};

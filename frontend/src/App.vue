@@ -1,54 +1,5 @@
 <template>
   <div class="app">
-    <!-- Space Background -->
-    <div class="space-background">
-      <div class="stars">
-        <div v-for="n in 50" :key="n" class="star" :style="getStarStyle()"></div>
-      </div>
-      <div class="solar-system">
-        <div class="sun"></div>
-        
-        <!-- Mercury -->
-        <div class="orbit orbit-mercury">
-          <div class="planet planet-mercury"></div>
-        </div>
-        
-        <!-- Venus -->
-        <div class="orbit orbit-venus">
-          <div class="planet planet-venus"></div>
-        </div>
-        
-        <!-- Earth -->
-        <div class="orbit orbit-earth">
-          <div class="planet planet-earth"></div>
-        </div>
-        
-        <!-- Mars -->
-        <div class="orbit orbit-mars">
-          <div class="planet planet-mars"></div>
-        </div>
-        
-        <!-- Jupiter -->
-        <div class="orbit orbit-jupiter">
-          <div class="planet planet-jupiter"></div>
-        </div>
-        
-        <!-- Saturn -->
-        <div class="orbit orbit-saturn">
-          <div class="planet planet-saturn"></div>
-        </div>
-        
-        <!-- Uranus -->
-        <div class="orbit orbit-uranus">
-          <div class="planet planet-uranus"></div>
-        </div>
-        
-        <!-- Neptune -->
-        <div class="orbit orbit-neptune">
-          <div class="planet planet-neptune"></div>
-        </div>
-      </div>
-    </div>
 
     <header class="header">
       <div class="container">
@@ -80,7 +31,7 @@
                 ref="fileInput"
                 type="file" 
                 @change="handleFileSelect"
-                accept=".py,.js,.ts,.java,.php,.go,.sql,.prisma,.c,.cpp,.cs,.rs"
+                accept=".py,.js,.mjs,.cjs,.ts,.java,.php,.go,.sql,.prisma,.c,.cpp,.cc,.cs,.rs"
                 style="display: none"
               />
               <div class="upload-content">
@@ -114,9 +65,9 @@
 
             <div class="selector-group">
               <label class="label">To</label>
-              <select v-model="targetLanguage" class="select">
+              <select v-model="targetLanguage" class="select" :disabled="!sourceLanguage">
                 <option value="" disabled>Select target language</option>
-                <option v-for="lang in languages" :key="lang.value" :value="lang.value">
+                <option v-for="lang in availableTargetLanguages" :key="lang.value" :value="lang.value">
                   {{ lang.label }}
                 </option>
               </select>
@@ -125,10 +76,7 @@
 
           <!-- Quick Actions -->
           <div class="quick-actions mb-md">
-            <button @click="loadExample" class="btn btn-sm btn-outline" :disabled="!sourceLanguage">
-              📝 Load Example
-            </button>
-            <button @click="showHistory = !showHistory" class="btn btn-sm btn-outline">
+            <button @click="showHistory = !showHistory" class="btn btn-sm btn-outline" style="width: 100%;">
               📜 History ({{ history.length }})
             </button>
           </div>
@@ -188,18 +136,21 @@
                 >
                   {{ copiedSource ? '✓ Copied!' : '📋 Copy' }}
                 </button>
+                <button 
+                  v-if="sourceCode"
+                  @click="clearSource"
+                  class="btn btn-sm btn-secondary"
+                >
+                  🗑️ Clear
+                </button>
               </div>
             </div>
             <div class="editor-wrapper">
               <div class="code-editor-container">
-                <pre class="code-display" v-if="sourceCode && !isEditingSource"><code :class="getHighlightClass(sourceLanguage)" v-html="highlightCode(sourceCode, sourceLanguage)"></code></pre>
                 <textarea 
                   v-model="sourceCode"
                   @input="updateSourceStats"
-                  @focus="isEditingSource = true"
-                  @blur="isEditingSource = false"
                   class="code-textarea"
-                  :class="{ 'editing': isEditingSource }"
                   placeholder="Paste your code here or upload a file..."
                   :disabled="isConverting"
                 ></textarea>
@@ -386,13 +337,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { converterApi } from '@/api/converter';
-import { SUPPORTED_LANGUAGES } from '@/types';
+import { SUPPORTED_LANGUAGES, VALID_CONVERSIONS } from '@/types';
 import type { Language, ViewMode } from '@/types';
 import { CODE_EXAMPLES } from '@/utils/codeExamples';
 import { saveToHistory, getHistory, clearHistory, type ConversionHistory } from '@/utils/localStorage';
 import { copyToClipboard } from '@/utils/clipboard';
 import { getCodeStats, type CodeStats } from '@/utils/codeStats';
 import { SETUP_GUIDES, type SetupGuide } from '@/utils/setupGuides';
+import { detectLanguage } from '@/utils/languageDetector';
+import { validateSyntax } from '@/utils/syntaxValidator';
 import hljs from 'highlight.js/lib/core';
 import javascript from 'highlight.js/lib/languages/javascript';
 import typescript from 'highlight.js/lib/languages/typescript';
@@ -421,6 +374,13 @@ hljs.registerLanguage('sql', sql);
 
 const languages = SUPPORTED_LANGUAGES;
 
+// Computed available target languages based on source
+const availableTargetLanguages = computed(() => {
+  if (!sourceLanguage.value) return languages;
+  const validTargets = VALID_CONVERSIONS[sourceLanguage.value as Language] || [];
+  return languages.filter(lang => validTargets.includes(lang.value));
+});
+
 // State
 const sourceLanguage = ref<Language | ''>('');
 const targetLanguage = ref<Language | ''>('');
@@ -442,7 +402,7 @@ const sourceStats = ref<CodeStats | null>(null);
 const convertedStats = ref<CodeStats | null>(null);
 const showSetupGuide = ref(false);
 const setupGuide = ref<SetupGuide | null>(null);
-const isEditingSource = ref(false);
+
 
 // Computed
 const canConvert = computed(() => {
@@ -514,12 +474,30 @@ const processFile = async (file: File) => {
     }
     
     sourceCode.value = text;
+    updateSourceStats();
     
     // Auto-detect source language from file extension
     const ext = file.name.split('.').pop()?.toLowerCase();
-    const detectedLang = languages.find(l => l.extension === `.${ext}`);
-    if (detectedLang) {
-      sourceLanguage.value = detectedLang.value;
+    const extMap: Record<string, Language> = {
+      'py': 'python',
+      'js': 'javascript',
+      'mjs': 'javascript',
+      'cjs': 'nodejs',
+      'ts': 'typescript',
+      'java': 'java',
+      'php': 'php',
+      'go': 'golang',
+      'c': 'c',
+      'cpp': 'cpp',
+      'cc': 'cpp',
+      'cs': 'csharp',
+      'rs': 'rust',
+      'sql': 'sql',
+      'prisma': 'prisma'
+    };
+    
+    if (ext && extMap[ext]) {
+      sourceLanguage.value = extMap[ext];
     }
   } catch (error) {
     errorMessage.value = 'Failed to read file. Please ensure it is a valid text file.';
@@ -534,6 +512,18 @@ const convertCode = async () => {
   if (sourceCode.value.length > 50000) {
     errorMessage.value = 'Code is too large. Maximum 50,000 characters allowed.';
     return;
+  }
+  
+  // Basic syntax validation
+  const syntaxError = validateSyntax(sourceCode.value, sourceLanguage.value as Language);
+  if (syntaxError) {
+    errorMessage.value = `⚠️ Syntax Error Detected: ${syntaxError}\n\nPlease fix the error before converting. The conversion may produce incorrect results with syntax errors.`;
+    
+    // Ask user if they want to proceed anyway
+    if (!confirm(`Syntax error detected:\n${syntaxError}\n\nDo you want to proceed with conversion anyway?`)) {
+      return;
+    }
+    errorMessage.value = '';
   }
   
   isConverting.value = true;
@@ -634,11 +624,30 @@ const copyConverted = async () => {
   }
 };
 
+const clearSource = () => {
+  sourceCode.value = '';
+  sourceStats.value = null;
+  sourceLanguage.value = '';
+  targetLanguage.value = '';
+  uploadedFile.value = null;
+};
+
 const updateSourceStats = () => {
   if (sourceCode.value) {
     sourceStats.value = getCodeStats(sourceCode.value);
+    
+    // Auto-detect language if not already set
+    if (!sourceLanguage.value && sourceCode.value.trim().length > 10) {
+      const detected = detectLanguage(sourceCode.value);
+      if (detected) {
+        sourceLanguage.value = detected;
+      }
+    }
   } else {
     sourceStats.value = null;
+    // Clear language selection when code is cleared
+    sourceLanguage.value = '';
+    targetLanguage.value = '';
   }
 };
 
@@ -762,16 +771,16 @@ onUnmounted(() => {
 .app {
   min-height: 100vh;
   position: relative;
-  z-index: 1;
+  background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
 }
 
 .header {
   position: sticky;
   top: 0;
   z-index: 100;
-  padding: var(--spacing-xl) 0;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-glass);
+  padding: var(--spacing-2xl) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 20, 25, 0.95);
   backdrop-filter: blur(20px);
 }
 
@@ -784,18 +793,20 @@ onUnmounted(() => {
 }
 
 .main {
-  padding: var(--spacing-2xl) var(--spacing-lg);
+  padding: var(--spacing-2xl) var(--spacing-2xl);
+  max-width: 1800px;
+  margin: 0 auto;
 }
 
 .converter-layout {
   display: grid;
-  grid-template-columns: 350px 1fr;
-  gap: var(--spacing-xl);
+  grid-template-columns: 400px 1fr;
+  gap: var(--spacing-2xl);
   align-items: start;
 }
 
 .control-panel {
-  /* Removed sticky positioning - scrolls with content */
+  padding: var(--spacing-2xl);
 }
 
 .label {
@@ -814,14 +825,14 @@ onUnmounted(() => {
   padding: var(--spacing-xl);
   text-align: center;
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: border-color 0.2s ease, background 0.2s ease;
   background: var(--color-bg-tertiary);
 }
 
 .file-upload-zone:hover,
 .file-upload-zone.drag-over {
-  border-color: var(--color-accent-primary);
-  background: rgba(255, 255, 255, 0.05);
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.05);
 }
 
 .upload-content {
@@ -834,7 +845,7 @@ onUnmounted(() => {
 .upload-icon {
   width: 3rem;
   height: 3rem;
-  color: var(--color-accent-primary);
+  color: #4a9eff;
 }
 
 .text-sm {
@@ -860,7 +871,7 @@ onUnmounted(() => {
 
 .arrow-icon {
   font-size: 1.5rem;
-  color: var(--color-accent-primary);
+  color: #4a9eff;
   padding-bottom: var(--spacing-sm);
 }
 
@@ -894,7 +905,7 @@ onUnmounted(() => {
 .editors-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-xl);
+  gap: var(--spacing-2xl);
 }
 
 .editors-container.split-view {
@@ -987,13 +998,12 @@ onUnmounted(() => {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .history-item:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--color-border-hover);
-  transform: translateX(4px);
 }
 
 .history-header {
@@ -1151,7 +1161,8 @@ kbd {
 .editor-panel {
   display: flex;
   flex-direction: column;
-  min-height: 600px;
+  min-height: 800px;
+  padding: var(--spacing-xl);
 }
 
 .editor-header {
@@ -1190,7 +1201,7 @@ kbd {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 500px;
+  min-height: 700px;
 }
 
 .code-display {
@@ -1218,14 +1229,11 @@ kbd {
 }
 
 .code-textarea {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
-  min-height: 500px;
+  min-height: 700px;
   padding: var(--spacing-md);
-  background: transparent;
+  background: #1e1e1e;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: #d4d4d4;
@@ -1233,22 +1241,13 @@ kbd {
   font-size: 0.875rem;
   line-height: 1.6;
   resize: vertical;
-  transition: all var(--transition-base);
+  transition: border-color 0.2s ease;
   caret-color: #d4d4d4;
-}
-
-.code-textarea.editing {
-  background: #1e1e1e;
-  z-index: 1;
 }
 
 .code-textarea-hidden {
   opacity: 0;
   pointer-events: none;
-}
-
-.code-textarea:not(.editing):not([readonly]) {
-  color: transparent;
 }
 
 .code-textarea:focus {

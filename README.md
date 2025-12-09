@@ -334,9 +334,10 @@ See [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md) for detailed instructions.
 
 ## 💡 Features Implemented
 
+### Core Features
 - ✅ **Streaming Conversion**: Real-time output as code is generated
 - ✅ **File Upload**: Drag-and-drop support with auto-detection
-- ✅ **13 Languages**: Python, JS, TS, Node.js, Java, PHP, Go, C, C++, C#, Rust, SQL, Prisma
+- ✅ **14 Languages**: Python, JS, TS, Node.js, Java, PHP, Go, C, C++, C#, Rust, SQL, Prisma, Drizzle
 - ✅ **Multiple AI Providers**: Groq, OpenAI, Hugging Face
 - ✅ **Code Explanation**: AI-powered code explanations
 - ✅ **Split View**: Side-by-side code comparison
@@ -346,7 +347,24 @@ See [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md) for detailed instructions.
 - ✅ **Code Statistics**: Real-time line/character/word count
 - ✅ **Keyboard Shortcuts**: Power user productivity features
 - ✅ **Setup Guide**: Configuration and dependency guide for each language
-- ✅ **Production Ready**: Deployed on Fly.io + Vercel
+
+### Advanced Features (NEW! 🎉)
+- ✅ **Code Complexity Analysis**: Cyclomatic complexity scoring
+- ✅ **Performance Hints**: Detect nested loops, memory issues
+- ✅ **Security Scanning**: SQL injection, XSS, hardcoded secrets
+- ✅ **Code Formatting**: Auto-format before conversion
+- ✅ **AI Code Review**: Best practices and suggestions
+- ✅ **Batch Conversion**: Convert up to 10 files at once
+- ✅ **Code Playground**: Execute Python/JavaScript in browser
+- ✅ **Confidence Score**: 0-100% conversion confidence
+- ✅ **Diff Viewer**: Line-by-line comparison
+- ✅ **Rate Limiting**: Protection against abuse
+
+### Production Ready
+- ✅ **Deployed on Fly.io + Vercel**
+- ✅ **99.9% Uptime**
+- ✅ **Auto-scaling**
+- ✅ **Rate limiting & throttling**
 
 ## 🤝 Contributing
 
@@ -426,11 +444,40 @@ For issues or questions:
 - One-click copy for all commands and config files
 - Covers all 13 supported languages
 
+## 🔒 Rate Limiting & Security
+
+### Rate Limits (Per IP Address)
+- **`/convert`, `/analyze`, `/format`, `/explain`**: 20 requests/minute
+- **`/execute`**: 10 requests/minute (code execution)
+- **`/batch-convert`**: 5 requests/minute (resource intensive)
+
+### Request Throttling
+- Automatic rate limiting using `slowapi`
+- Per-IP tracking prevents abuse
+- Returns `429 Too Many Requests` when limit exceeded
+- Protects against unlimited rapid calls
+
+### Input Validation
+- **Code length limits**: 100KB for conversion, 10KB for execution
+- **File size limits**: 1MB per file
+- **Batch limits**: Maximum 10 files per request
+- **Syntax validation**: Pre-conversion checks
+
+### Security Features
+- ✅ SQL injection detection
+- ✅ XSS vulnerability scanning
+- ✅ Hardcoded secrets detection
+- ✅ Command injection prevention
+- ✅ Sandboxed code execution (5-second timeout)
+- ✅ CORS configuration
+- ✅ Request logging
+
 ## 📊 Performance
 
 - **Response Time**: < 5 seconds for most conversions
 - **Uptime**: 99.9% (Fly.io auto-scaling)
 - **Concurrent Users**: Supports multiple simultaneous conversions
+- **Rate Limiting**: Prevents API abuse and ensures fair usage
 
 ---
 
