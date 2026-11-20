@@ -17,3 +17,6 @@ build/
 .gitignore
 README.md
 .DS_Store
+tests/
+pytest.ini
+requirements-dev.txt
