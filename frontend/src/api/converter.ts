@@ -1,7 +1,18 @@
 import axios from 'axios';
 import type { ConversionRequest, ConversionResponse } from '@/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+/** Must match STREAM_ERROR_MARKER in backend/app/converter.py */
+const STREAM_ERROR_MARKER = '\u0000STREAM_ERROR\u0000';
+
+/** The stream started but the model failed part-way; output so far is partial. */
+export class StreamInterruptedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'StreamInterruptedError';
+  }
+}
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -36,7 +47,15 @@ export const converterApi = {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Conversion failed: ${errorText || response.statusText}`);
+      let detail = errorText;
+      try {
+        const parsed = JSON.parse(errorText);
+        if (typeof parsed.detail === 'string') detail = parsed.detail;
+        else if (typeof parsed.error === 'string') detail = parsed.error; // rate limiter
+      } catch {
+        /* not JSON */
+      }
+      throw new Error(detail || `Conversion failed (${response.status} ${response.statusText})`);
     }
 
     const reader = response.body?.getReader();
@@ -44,16 +63,35 @@ export const converterApi = {
 
     if (!reader) throw new Error('Stream not available');
 
+    // The backend ends a stream that fails mid-way with this marker + message.
+    // It starts with a NUL byte, which never appears in model output.
+    let streamError: string | null = null;
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         const chunk = decoder.decode(value, { stream: true });
-        onChunk(chunk);
+        if (streamError !== null) {
+          streamError += chunk;
+          continue;
+        }
+        const at = chunk.indexOf(STREAM_ERROR_MARKER[0]);
+        if (at === -1) {
+          onChunk(chunk);
+        } else {
+          if (at > 0) onChunk(chunk.slice(0, at));
+          streamError = chunk.slice(at);
+        }
       }
     } finally {
       reader.releaseLock();
+    }
+
+    if (streamError !== null) {
+      throw new StreamInterruptedError(
+        streamError.replace(STREAM_ERROR_MARKER, '').trim() || 'The model stopped mid-conversion.'
+      );
     }
   },
 
