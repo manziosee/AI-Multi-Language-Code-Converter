@@ -1,6 +1,6 @@
 # 🚀 AI Multi-Language Code Converter
 
-A modern, real-time web application that automatically converts code from one programming language to another using AI (Groq Llama 3.3, OpenAI GPT-4o, or Hugging Face).
+A modern, real-time web application that automatically converts code from one programming language to another using AI (Groq gpt-oss-120b, OpenAI GPT-4o, Hugging Face, or any OpenAI-compatible API).
 
 **🌐 Live Demo:** https://ai-multi-language-code-converter.vercel.app/
 
@@ -9,14 +9,14 @@ A modern, real-time web application that automatically converts code from one pr
 ![Vue](https://img.shields.io/badge/vue-3.4+-green.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-5.3+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688.svg)
-![Groq](https://img.shields.io/badge/Groq-Llama%203.3-orange.svg)
+![Groq](https://img.shields.io/badge/Groq-gpt--oss--120b-orange.svg)
 
 ## ✨ Features
 
 - **🔄 Multi-Language Support**: Convert between 13 programming languages
 - **📁 File Upload**: Drag-and-drop or click to upload code files
 - **🎨 Premium UI**: Modern dark theme with glassmorphism and animated space background
-- **⚡ Real-Time Streaming**: Live code translation powered by Groq (Llama 3.3), Hugging Face, or OpenAI
+- **⚡ Real-Time Streaming**: Live code translation powered by Groq (gpt-oss-120b), Hugging Face, OpenAI, or any OpenAI-compatible API
 - **💡 Code Explanation**: AI-powered explanations of your code
 - **📊 Split View**: Side-by-side code comparison
 - **📋 Copy to Clipboard**: One-click copy for source and converted code
@@ -85,19 +85,27 @@ cp .env.example .env
 
 5. Edit `.env` and add your API keys:
 ```env
-# Choose your AI provider: groq, openai, or huggingface
+# Choose your AI provider: groq, huggingface, openai, or openai_compatible
 AI_PROVIDER=groq
 
 # Groq Configuration (Recommended - Fast & Free)
 GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-120b
 
 # OpenAI Configuration (Alternative)
 OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini
 
-# Hugging Face Configuration (Alternative)
+# Hugging Face Configuration (Alternative, uses monthly Inference Provider credits)
 HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+HUGGINGFACE_MODEL=Qwen/Qwen3-Coder-30B-A3B-Instruct
+
+# Any OpenAI-compatible endpoint (OpenRouter, Together, Ollama, LM Studio, ...)
+# AI_PROVIDER=openai_compatible
+OPENAI_COMPATIBLE_NAME=OpenRouter
+OPENAI_COMPATIBLE_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_COMPATIBLE_API_KEY=your_key_here
+OPENAI_COMPATIBLE_MODEL=qwen/qwen-2.5-coder-32b-instruct
 
 # Server Configuration
 CORS_ORIGINS=http://localhost:5173,http://localhost:3000
@@ -238,7 +246,7 @@ Visit `http://localhost:8000/docs` for interactive Swagger UI documentation.
 
 ### Backend
 - **FastAPI** - Modern Python web framework
-- **Groq API** - Llama 3.3 for fast code conversion
+- **Groq API** - gpt-oss-120b for fast code conversion
 - **OpenAI API** - GPT-4o alternative
 - **Hugging Face** - Open-source models alternative
 - **Pydantic** - Data validation
@@ -272,41 +280,52 @@ AI-Multi-Language-Code-Converter/
 └── README.md
 ```
 
+## 🧪 Running Tests
+
+All tests use a fake model server, so they need no API keys and spend no tokens.
+
+```bash
+# Backend: every endpoint, against each AI provider
+cd backend && pip install -r requirements-dev.txt && pytest
+
+# Frontend: syntax-checker unit tests
+cd frontend && npm test
+
+# End-to-end: starts fake model + backend + frontend and drives Chrome
+pip install -r e2e/requirements.txt && python -m playwright install chromium
+pytest e2e -c e2e/pytest.ini
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs all of these, plus a Docker
+build and health check, on every push to `main`/`dev` and on pull requests.
+
 ## 🚀 Deployment
 
 ### Backend Deployment (Fly.io)
 
-**Quick Deploy:**
+Live at **https://ai-code-converter.fly.dev** (`backend/fly.toml`).
+
 ```bash
 cd backend
+fly auth login
 
-# Install Fly CLI
-curl -L https://fly.io/install.sh | sh
+# Keys live in Fly secrets, never in the image (.env is in .dockerignore).
+# Import the non-empty provider keys from your local .env:
+grep -E '^(AI_PROVIDER|GROQ_|HUGGINGFACE_|OPENAI_API_KEY|OPENAI_MODEL)=.+' .env \
+  | fly secrets import --stage
 
-# Login
-flyctl auth login
-
-# Launch app
-flyctl launch --no-deploy
-
-# Set secrets
-flyctl secrets set AI_PROVIDER=groq
-flyctl secrets set GROQ_API_KEY=your_groq_api_key
-flyctl secrets set CORS_ORIGINS="http://localhost:5173,https://your-app.vercel.app"
-
-# Deploy
-flyctl deploy
+fly deploy --ha=false        # one machine; it sleeps when idle and wakes on request
+curl https://ai-code-converter.fly.dev/health
 ```
 
-**Or use the automated script:**
-```bash
-cd backend
-./deploy.sh
-```
+If a deploy fails its health check, run `fly logs`: a missing key shows up as
+`ValueError: ... API key not configured`.
 
-The backend will be available at `https://ai-code-converter-manzi.fly.dev/`
+**Other hosts:** the image listens on `$PORT`, so it also runs on Render
+(`render.yaml` is included: New → Blueprint), Railway, Koyeb or Cloud Run.
 
-
+> `/execute` (code playground) runs user code on the server and is disabled
+> unless `ENABLE_CODE_EXECUTION=true`. Only enable it inside a sandbox.
 
 ### Frontend Deployment (Vercel)
 
@@ -322,7 +341,7 @@ vercel
 
 # Set environment variable
 vercel env add VITE_API_URL production
-# Enter: https://your-app-name.fly.dev
+# Enter: https://ai-code-converter.fly.dev
 
 # Deploy to production
 vercel --prod
